@@ -18,7 +18,8 @@ class Settings(BaseSettings):
     google_model: str = "gemini-2.0-flash"
     backend_host: str = "0.0.0.0"
     backend_port: int = 8000
-    cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
+    # "*" allows same-origin Vercel deploys; keep localhost for local Vite.
+    cors_origins: str = "*,http://localhost:5173,http://127.0.0.1:5173"
     prompt_version: str = "personality-compiler-v1"
 
     @property
