@@ -10,6 +10,10 @@ Phase 1 Interactive MVP — a professional React + FastAPI studio for exploring 
 
 Phase 2 evaluation UI / judges are **not** included — see `docs/ROADMAP.md`.
 
+## Auth + allowlist
+
+Sign-up / login (password + optional Google OAuth). New accounts are **pending** until an admin approves them. Playground APIs (`/api/chat`, fixtures, preview, …) require an **approved** session cookie. Admin allowlist UI manages approve / deny / revoke. Seed admin: `ADMIN_EMAIL`.
+
 ## Quickstart
 
 ### 1. Environment
@@ -17,18 +21,25 @@ Phase 2 evaluation UI / judges are **not** included — see `docs/ROADMAP.md`.
 ```bash
 cp .env.example backend/.env
 # Add at least one provider key for live chat (optional — scripted demo works without keys)
+# For auth: set SESSION_SECRET, ADMIN_EMAIL, DATABASE_URL (Postgres in prod)
 ```
 
 | Variable | Where | Purpose |
 |----------|--------|---------|
-| `OPENAI_API_KEY` | `backend/.env` | OpenAI adapter |
-| `GOOGLE_API_KEY` | `backend/.env` | Google Gemini adapter |
-| `OPENAI_MODEL` | `backend/.env` | Default OpenAI model (`gpt-4o-mini`) |
-| `GOOGLE_MODEL` | `backend/.env` | Default Google model (`gemini-2.0-flash`) |
+| `DATABASE_URL` | backend / Vercel | Postgres (Neon). Local default: SQLite memory |
+| `SESSION_SECRET` | backend / Vercel | Signed httpOnly session cookies |
+| `ADMIN_EMAIL` | backend / Vercel | Auto-approved admin seed |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | backend / Vercel | Google Sign-In |
+| `DATA_ENCRYPTION_KEY` | backend / Vercel | Optional Fernet for emails at rest |
+| `RESEND_API_KEY` or `SMTP_*` | backend / Vercel | Notify admin of pending signups |
+| `OPENAI_API_KEY` | backend / Vercel | OpenAI adapter |
+| `GOOGLE_API_KEY` | backend / Vercel | Google Gemini adapter |
+| `OPENAI_MODEL` | backend / Vercel | Default OpenAI model (`gpt-4o-mini`) |
+| `GOOGLE_MODEL` | backend / Vercel | Default Google model (`gemini-2.0-flash`) |
+| `APP_BASE_URL` | backend / Vercel | Public origin (OAuth redirects) |
 | `VITE_API_BASE_URL` | optional frontend | Defaults to same-origin `/api` via Vite proxy |
 
-The frontend **never** holds API keys. If neither key is set, use **Scripted demo mode** in the model switcher (explicitly labeled — never a silent fake live model).
-
+The frontend **never** holds API keys. If neither LLM key is set, use **Scripted demo mode** in the model switcher (explicitly labeled — never a silent fake live model).
 ### 2. Backend
 
 ```bash
