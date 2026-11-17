@@ -23,7 +23,7 @@ Status as of implementation. Update when verified against a running stack.
 | 17 | No Phase 2 evaluation UI / judges / uploads / Measured overlays | Done (stubs + docs only) |
 | 18 | Tests: compiler, tools, chat | Done (19 pytest) |
 | 19 | README quickstart + `.env.example` only (no secrets committed) | Done |
-| 20 | Public GitHub repo + PR to `main` | Pending GitHub auth |
+| 20 | Public GitHub repo + PR to `main` | Done — https://github.com/Sarang-Pramode/personality-playground/pull/1 |
 
 ## Presenter demo
 
