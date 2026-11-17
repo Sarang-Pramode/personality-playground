@@ -87,3 +87,13 @@ async def chat(body: ChatRequest) -> ChatResponse:
         settings=settings,
     )
     return ChatResponse(**result)
+
+
+@app.get("/api/evaluation/status")
+def evaluation_status_stub() -> dict:
+    """Phase 2 stub — batch evaluation is not implemented in MVP."""
+    return {
+        "phase": 2,
+        "implemented": False,
+        "message": "Batch evaluation, judges, and Measured overlays are reserved for Phase 2.",
+    }
