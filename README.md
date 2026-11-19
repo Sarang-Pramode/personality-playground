@@ -36,6 +36,7 @@ cp .env.example backend/.env
 | `GOOGLE_API_KEY` | backend / Vercel | Google Gemini adapter |
 | `OPENAI_MODEL` | backend / Vercel | Default OpenAI model (`gpt-4o-mini`) |
 | `GOOGLE_MODEL` | backend / Vercel | Default Google model (`gemini-2.0-flash`) |
+| `OPENAI_KEY_EXPIRES_AT` | backend / Vercel | ISO date (`YYYY-MM-DD`) for key-expiry banner (set when rotating a 7-day key) |
 | `APP_BASE_URL` | backend / Vercel | Public origin (OAuth redirects) |
 | `VITE_API_BASE_URL` | optional frontend | Defaults to same-origin `/api` via Vite proxy |
 
@@ -76,17 +77,28 @@ pytest -q
 2. Switch to **Concise** → same question / new session.
 3. Inspect **Developer Details** for compiled prompts + identical banking facts from tools.
 4. Toggle model switcher between OpenAI, Google, and Scripted demo.
+5. Scroll to **Demo lab** (page bottom) → Run all scenarios for a preset; reload to see cache hits.
+
+### OpenAI model allowlist
+
+Experimentation only lists small models: `gpt-4o-mini`, `gpt-4.1-mini` (large models like `gpt-4o` / `o1` are rejected). Google + scripted demo are unchanged.
+
+### Demo cache
+
+Server-side rows in Postgres (`demo_cache`), keyed by `preset|customer|scenario|provider|model|prompt_version`. Stores reply text + safe metadata (no API keys). `GET /api/demo/cache` loads hits; `POST /api/demo/run` fills misses (`force=true` refreshes).
 
 ## API
 
 | Method | Path | Notes |
 |--------|------|-------|
-| GET | `/api/health` | Status + provider availability |
+| GET | `/api/health` | Status + provider availability + key expiry + allowlist |
 | GET | `/api/fixtures` | customer_A / customer_B + scenarios |
 | GET | `/api/presets` | Named presets |
-| GET | `/api/models` | Available adapters |
+| GET | `/api/models` | Available adapters (OpenAI allowlisted) |
 | POST | `/api/personality/preview` | Compile requested profile |
 | POST | `/api/chat` | Chat + run metadata / tool traces |
+| GET | `/api/demo/cache` | Cached preset scenario demos |
+| POST | `/api/demo/run` | Run / refresh starter scenarios into cache |
 
 ## Repo layout
 

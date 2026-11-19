@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     google_api_key: str = ""
     openai_model: str = "gpt-4o-mini"
     google_model: str = "gemini-2.0-flash"
+    # ISO date (YYYY-MM-DD) when the OpenAI key expires — for admin/local UI only.
+    # Set on Vercel when rotating a short-lived key; never send the key to the browser.
+    openai_key_expires_at: str = ""
     backend_host: str = "0.0.0.0"
     backend_port: int = 8000
     # Prefer explicit origins when using cookie auth (cannot use * with credentials).

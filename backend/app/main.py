@@ -12,12 +12,20 @@ from app.auth.routes import admin_router, router as auth_router
 from app.auth.users import User, ensure_admin_seed
 from app.chat.service import get_chat_service
 from app.config import get_settings
+from app.config_expiry import openai_key_expiry_payload
 from app.db import get_session_factory, run_migrations
+from app.demo.service import get_demo_lab_service
 from app.fixtures.data import list_fixtures
 from app.llm.adapters import list_models
+from app.llm.allowlist import OPENAI_ALLOWED_MODELS
 from app.personality.compiler import compile_personality
 from app.personality.presets import PRESETS
-from app.schemas import ChatRequest, ChatResponse, PreviewRequest
+from app.schemas import (
+    ChatRequest,
+    ChatResponse,
+    DemoRunRequest,
+    PreviewRequest,
+)
 from app.tools.registry import list_tool_names
 
 @asynccontextmanager
@@ -67,7 +75,7 @@ app.include_router(admin_router)
 
 @app.get("/api/health")
 def health() -> dict:
-    """Public health — no auth (for probes). Does not expose user data."""
+    """Public health — no auth (for probes). Does not expose user data or API keys."""
     settings = get_settings()
     models = list_models(settings)
     return {
@@ -80,6 +88,8 @@ def health() -> dict:
             "google": settings.google_available,
             "any_live": settings.any_llm_available,
         },
+        "openai_allowed_models": list(OPENAI_ALLOWED_MODELS),
+        "openai_key_expiry": openai_key_expiry_payload(settings.openai_key_expires_at),
         "models": models,
         "tools": list_tool_names(),
     }
@@ -142,3 +152,44 @@ def evaluation_status_stub(
         "implemented": False,
         "message": "Batch evaluation, judges, and Measured overlays are reserved for Phase 2.",
     }
+
+
+@app.get("/api/demo/cache")
+def demo_cache_get(
+    preset: str = "balanced",
+    customer_id: str = "customer_A",
+    provider: str = "demo",
+    model_id: str | None = None,
+    _user: User | None = Depends(require_approved),
+) -> dict:
+    """Return cached preset scenario demos for the selection (instant UI load)."""
+    try:
+        return get_demo_lab_service().list_cached(
+            preset=preset,
+            customer_id=customer_id,
+            provider=provider,
+            model_id=model_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/demo/run")
+async def demo_run(
+    body: DemoRunRequest, _user: User | None = Depends(require_approved)
+) -> dict:
+    """
+    Run starter scenarios for a preset × fixture × model.
+    Cache hits return instantly; set force=true to refresh (re-run LLM).
+    """
+    try:
+        return await get_demo_lab_service().run_all(
+            preset=body.preset,
+            customer_id=body.customer_id,
+            provider=body.provider,
+            model_id=body.model_id,
+            force=body.force,
+            scenario_ids=body.scenario_ids,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc

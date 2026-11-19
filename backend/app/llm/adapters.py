@@ -6,6 +6,11 @@ import json
 from typing import Any
 
 from app.config import Settings, get_settings
+from app.llm.allowlist import (
+    OPENAI_ALLOWED_MODELS,
+    is_openai_model_allowed,
+    resolve_openai_model,
+)
 from app.tools.registry import TOOL_DEFINITIONS, execute_tool
 
 
@@ -13,25 +18,23 @@ class LLMUnavailableError(RuntimeError):
     """Raised when a live provider is requested but not configured."""
 
 
+class ModelNotAllowedError(ValueError):
+    """Raised when a client requests a non-allowlisted OpenAI model."""
+
+
 def list_models(settings: Settings | None = None) -> list[dict[str, Any]]:
+    """Return switcher options — OpenAI entries are allowlisted small models only."""
     settings = settings or get_settings()
     models: list[dict[str, Any]] = []
-    if settings.openai_available:
+    for mid in OPENAI_ALLOWED_MODELS:
+        available = settings.openai_available
+        suffix = "" if available else " (key missing)"
         models.append(
             {
                 "provider": "openai",
-                "model_id": settings.openai_model,
-                "label": f"OpenAI · {settings.openai_model}",
-                "available": True,
-            }
-        )
-    else:
-        models.append(
-            {
-                "provider": "openai",
-                "model_id": settings.openai_model,
-                "label": f"OpenAI · {settings.openai_model} (key missing)",
-                "available": False,
+                "model_id": mid,
+                "label": f"OpenAI · {mid}{suffix}",
+                "available": available,
             }
         )
     if settings.google_available:
@@ -88,8 +91,15 @@ async def complete_chat(
             raise LLMUnavailableError(
                 "OpenAI is not configured. Set OPENAI_API_KEY or switch to Google / Scripted demo mode."
             )
+        requested = model_id or settings.openai_model
+        if not is_openai_model_allowed(requested):
+            raise ModelNotAllowedError(
+                f"OpenAI model '{requested}' is not allowlisted. "
+                f"Allowed: {', '.join(OPENAI_ALLOWED_MODELS)}"
+            )
+        resolved = resolve_openai_model(requested, settings.openai_model)
         return await _openai_chat(
-            model_id=model_id or settings.openai_model,
+            model_id=resolved,
             system_prompt=system_prompt,
             messages=messages,
             customer_id=customer_id,

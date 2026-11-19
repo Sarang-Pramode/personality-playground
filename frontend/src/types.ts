@@ -159,3 +159,75 @@ export type SavedProfile = {
   preset: PresetName | "custom";
   updatedAt: string;
 };
+
+export type OpenAIKeyExpiry = {
+  expires_at: string;
+  days_remaining: number;
+  warn: boolean;
+  expired: boolean;
+};
+
+export type DemoCacheEntry = {
+  cache_key: string | null;
+  preset: string;
+  customer_id: string;
+  scenario_id: string;
+  provider: string;
+  model_id: string;
+  prompt_version: string;
+  reply: string;
+  metadata: {
+    profile?: TraitProfile;
+    preset?: string | null;
+    prompt_version?: string;
+    fixture_id?: string;
+    scenario_id?: string | null;
+    model_id?: string | null;
+    provider?: string;
+    mode?: string;
+    model_label?: string;
+    behavior_summary?: string;
+    tool_trace_summary?: { tool: string; ok: boolean; error?: string | null }[];
+    run_id?: string;
+  };
+  created_at?: string;
+  updated_at?: string;
+  cached?: boolean;
+};
+
+export type DemoCacheResponse = {
+  preset: string;
+  customer_id: string;
+  provider: string;
+  model_id: string;
+  prompt_version: string;
+  results: {
+    scenario_id: string;
+    title: string;
+    suggested_prompt: string;
+    hit: boolean;
+    entry: DemoCacheEntry | null;
+  }[];
+  cached_count: number;
+  total: number;
+};
+
+export type DemoRunResponse = {
+  preset: string;
+  customer_id: string;
+  provider: string;
+  model_id: string;
+  prompt_version: string;
+  force: boolean;
+  results: {
+    scenario_id: string;
+    title: string;
+    suggested_prompt: string;
+    cache_hit: boolean;
+    entry: DemoCacheEntry | null;
+    error: string | null;
+  }[];
+  cache_hits: number;
+  cache_misses: number;
+  total: number;
+};

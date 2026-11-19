@@ -38,3 +38,19 @@ class ChatResponse(BaseModel):
     session_id: str
     error: str | None = None
     metadata: dict[str, Any]
+
+
+class DemoCacheQuery(BaseModel):
+    preset: str = "balanced"
+    customer_id: Literal["customer_A", "customer_B"] = "customer_A"
+    provider: Literal["openai", "google", "demo"] = "demo"
+    model_id: str | None = None
+
+
+class DemoRunRequest(BaseModel):
+    preset: str = "balanced"
+    customer_id: Literal["customer_A", "customer_B"] = "customer_A"
+    provider: Literal["openai", "google", "demo"] = "demo"
+    model_id: str | None = None
+    force: bool = False
+    scenario_ids: list[str] | None = None

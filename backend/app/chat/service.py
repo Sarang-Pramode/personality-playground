@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from app.config import Settings, get_settings
-from app.llm.adapters import LLMUnavailableError, complete_chat
+from app.llm.adapters import LLMUnavailableError, ModelNotAllowedError, complete_chat
 from app.personality.compiler import TraitProfile, compile_personality
 
 
@@ -72,14 +72,16 @@ class ChatService:
                 settings=settings,
             )
             error = None
-        except LLMUnavailableError as exc:
+        except (LLMUnavailableError, ModelNotAllowedError) as exc:
             result = {
                 "reply": str(exc),
                 "tool_traces": [],
                 "mode": "error",
                 "provider": provider,
                 "model_id": model_id,
-                "label": f"{provider} unavailable",
+                "label": f"{provider} unavailable"
+                if isinstance(exc, LLMUnavailableError)
+                else "model not allowed",
             }
             error = str(exc)
 

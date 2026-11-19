@@ -1,7 +1,10 @@
 import type {
   ChatResponse,
+  DemoCacheResponse,
+  DemoRunResponse,
   FixtureCustomer,
   ModelInfo,
+  OpenAIKeyExpiry,
   PreviewResponse,
   Scenario,
   TraitProfile,
@@ -59,6 +62,9 @@ export function getHealth() {
     status: string;
     llm: { openai: boolean; google: boolean; any_live: boolean };
     models: ModelInfo[];
+    openai_allowed_models?: string[];
+    openai_key_expiry?: OpenAIKeyExpiry | null;
+    prompt_version?: string;
   }>("/api/health");
 }
 
@@ -165,6 +171,30 @@ export function sendChat(body: {
   model_id?: string | null;
 }) {
   return request<ChatResponse>("/api/chat", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function getDemoCache(params: {
+  preset: string;
+  customer_id: string;
+  provider: string;
+  model_id: string;
+}) {
+  const q = new URLSearchParams(params);
+  return request<DemoCacheResponse>(`/api/demo/cache?${q.toString()}`);
+}
+
+export function runDemoScenarios(body: {
+  preset: string;
+  customer_id: string;
+  provider: string;
+  model_id: string;
+  force?: boolean;
+  scenario_ids?: string[];
+}) {
+  return request<DemoRunResponse>("/api/demo/run", {
     method: "POST",
     body: JSON.stringify(body),
   });
