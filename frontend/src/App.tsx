@@ -7,8 +7,10 @@ import {
 } from "./components/AuthScreens";
 import { ChatPanel } from "./components/ChatPanel";
 import { ConfigurePanel } from "./components/ConfigurePanel";
+import { DemoLab } from "./components/DemoLab";
 import { DeveloperInspector } from "./components/DeveloperInspector";
 import { Header } from "./components/Header";
+import { KeyExpiryBanner } from "./components/KeyExpiryBanner";
 import { VisualizePanel } from "./components/VisualizePanel";
 import {
   ApiError,
@@ -33,6 +35,7 @@ import {
   type ChatMetadata,
   type FixtureCustomer,
   type ModelInfo,
+  type OpenAIKeyExpiry,
   type PresetName,
   type SavedProfile,
   type Scenario,
@@ -76,6 +79,7 @@ function Studio({
   const [modelId, setModelId] = useState<string | null>("scripted-demo");
   const [healthOk, setHealthOk] = useState<boolean | null>(null);
   const [llmLive, setLlmLive] = useState(false);
+  const [keyExpiry, setKeyExpiry] = useState<OpenAIKeyExpiry | null>(null);
 
   const [customers, setCustomers] = useState<FixtureCustomer[]>([]);
   const [scenarios, setScenarios] = useState<Scenario[]>([]);
@@ -104,6 +108,7 @@ function Studio({
         setHealthOk(true);
         setLlmLive(health.llm.any_live);
         setModels(health.models);
+        setKeyExpiry(health.openai_key_expiry ?? null);
         setCustomers(fixtures.customers);
         setScenarios(fixtures.scenarios);
         if (fixtures.scenarios[0]) {
@@ -267,6 +272,7 @@ function Studio({
         adminOpen={showAdmin}
         onToggleAdmin={onToggleAdmin}
       />
+      <KeyExpiryBanner expiry={keyExpiry} />
 
       {showAdmin && user.role === "admin" ? (
         <div className="mx-auto w-full max-w-[1600px] p-3">
@@ -345,6 +351,13 @@ function Studio({
               previewPrompt={previewPrompt}
             />
           </div>
+          <DemoLab
+            models={models}
+            customers={customers}
+            scenarios={scenarios}
+            defaultProvider={provider}
+            defaultModelId={modelId}
+          />
         </>
       )}
     </div>
