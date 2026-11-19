@@ -5,7 +5,7 @@ Independent judges and banking checks ship with the Demo lab. Measured radar ove
 ## Capabilities
 
 - Reuses the same chat adapter / Demo cache path as live studio runs
-- Independent LLM judges (allowlisted small OpenAI via `JUDGE_MODEL`) score traits with cited behaviors; abstain when evidence is weak
+- Independent LLM judges (allowlisted OpenAI via `JUDGE_MODEL`, default `gpt-4o-mini`) score traits with cited behaviors; abstain when evidence is weak
 - Deterministic banking checks (balance match, tools, eligibility, hallucination / policy) separate from personality scores
 - Scenario seed covering multiple of 12 eval categories (frustration, exploration, structure, …)
 - Demo lab report cards per preset × model × scenario; aggregates by selection and by model
@@ -26,7 +26,7 @@ Independent judges and banking checks ship with the Demo lab. Measured radar ove
 | Variable | Purpose |
 |----------|---------|
 | `OPENAI_API_KEY` | Required for personality judges (banking checks work without it) |
-| `JUDGE_MODEL` | Allowlisted small OpenAI id (`gpt-4o-mini` default, or `gpt-4.1-mini`) |
+| `JUDGE_MODEL` | Allowlisted OpenAI id (`gpt-4o-mini` default; keep on a small model) |
 | `OPENAI_MODEL` | Fallback when `JUDGE_MODEL` unset / invalid |
 
 Never fabricate Measured scores when the judge is unavailable — banking checks still run and show on report cards.

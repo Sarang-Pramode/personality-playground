@@ -1,4 +1,4 @@
-"""Independent LLM judge — allowlisted small OpenAI, separate from target chat."""
+"""Independent LLM judge — allowlisted OpenAI (small default), separate from target chat."""
 
 from __future__ import annotations
 
