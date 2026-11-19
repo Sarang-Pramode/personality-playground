@@ -190,6 +190,12 @@ async def test_demo_lab_run_miss_then_hit():
 
 
 def test_demo_api_cache_and_run(client: TestClient):
+    starters = [
+        "balance_check",
+        "redemption_options",
+        "recent_activity",
+        "card_earn_rates",
+    ]
     empty = client.get(
         "/api/demo/cache",
         params={
@@ -202,7 +208,7 @@ def test_demo_api_cache_and_run(client: TestClient):
     assert empty.status_code == 200
     body = empty.json()
     assert body["cached_count"] == 0
-    assert body["total"] == 4
+    assert body["total"] >= 4  # Phase 2 seeds additional eval-category scenarios
 
     run = client.post(
         "/api/demo/run",
@@ -212,12 +218,15 @@ def test_demo_api_cache_and_run(client: TestClient):
             "provider": "demo",
             "model_id": "scripted-demo",
             "force": False,
+            "scenario_ids": starters,
+            "auto_judge": True,
         },
     )
     assert run.status_code == 200
     run_body = run.json()
     assert run_body["cache_misses"] == 4
     assert all(r["entry"]["reply"] for r in run_body["results"])
+    assert run_body["scored_count"] == 4
 
     cached = client.get(
         "/api/demo/cache",
@@ -239,6 +248,7 @@ def test_demo_api_cache_and_run(client: TestClient):
             "provider": "demo",
             "model_id": "scripted-demo",
             "force": False,
+            "scenario_ids": starters,
         },
     )
     assert again.json()["cache_hits"] == 4

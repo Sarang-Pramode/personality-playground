@@ -15,6 +15,7 @@ from app.config import get_settings
 from app.config_expiry import openai_key_expiry_payload
 from app.db import get_session_factory, run_migrations
 from app.demo.service import get_demo_lab_service
+from app.evaluation.service import get_evaluation_service
 from app.fixtures.data import list_fixtures
 from app.llm.adapters import list_models
 from app.llm.allowlist import OPENAI_ALLOWED_MODELS
@@ -23,6 +24,7 @@ from app.personality.presets import PRESETS
 from app.schemas import (
     ChatRequest,
     ChatResponse,
+    DemoJudgeRequest,
     DemoRunRequest,
     PreviewRequest,
 )
@@ -51,8 +53,11 @@ async def lifespan(_app: FastAPI):
 
 app = FastAPI(
     title="Personality Playground API",
-    version="0.2.0",
-    description="Phase 1 Interactive MVP — synthetic banking rewards chatbot (auth optional via AUTH_ENABLED)",
+    version="0.3.0",
+    description=(
+        "Personality studio + Demo lab with Phase 2 independent judges "
+        "(auth optional via AUTH_ENABLED)"
+    ),
     lifespan=lifespan,
 )
 
@@ -143,15 +148,11 @@ async def chat(
 
 
 @app.get("/api/evaluation/status")
-def evaluation_status_stub(
+def evaluation_status(
     _user: User | None = Depends(require_approved),
 ) -> dict:
-    """Phase 2 stub — gated when AUTH_ENABLED, otherwise public placeholder."""
-    return {
-        "phase": 2,
-        "implemented": False,
-        "message": "Batch evaluation, judges, and Measured overlays are reserved for Phase 2.",
-    }
+    """Phase 2 status — independent judges + banking checks."""
+    return get_evaluation_service().status()
 
 
 @app.get("/api/demo/cache")
@@ -162,7 +163,7 @@ def demo_cache_get(
     model_id: str | None = None,
     _user: User | None = Depends(require_approved),
 ) -> dict:
-    """Return cached preset scenario demos for the selection (instant UI load)."""
+    """Return cached preset scenario demos + any persisted report-card scores."""
     try:
         return get_demo_lab_service().list_cached(
             preset=preset,
@@ -181,6 +182,7 @@ async def demo_run(
     """
     Run starter scenarios for a preset × fixture × model.
     Cache hits return instantly; set force=true to refresh (re-run LLM).
+    By default auto-runs independent judges + banking checks for report cards.
     """
     try:
         return await get_demo_lab_service().run_all(
@@ -188,6 +190,57 @@ async def demo_run(
             customer_id=body.customer_id,
             provider=body.provider,
             model_id=body.model_id,
+            force=body.force,
+            scenario_ids=body.scenario_ids,
+            auto_judge=body.auto_judge,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/demo/scores")
+def demo_scores_get(
+    preset: str = "balanced",
+    customer_id: str = "customer_A",
+    provider: str = "demo",
+    model_id: str | None = None,
+    _user: User | None = Depends(require_approved),
+) -> dict:
+    """Report cards for preset × fixture × model (persisted scores only)."""
+    try:
+        mid = get_demo_lab_service().validate_selection(
+            preset=preset,
+            customer_id=customer_id,
+            provider=provider,
+            model_id=model_id,
+        )
+        return get_evaluation_service().report_cards(
+            preset=preset,
+            customer_id=customer_id,
+            provider=provider,
+            model_id=mid,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/demo/judge")
+async def demo_judge(
+    body: DemoJudgeRequest, _user: User | None = Depends(require_approved)
+) -> dict:
+    """Score cached demo replies with independent judges + banking checks."""
+    try:
+        mid = get_demo_lab_service().validate_selection(
+            preset=body.preset,
+            customer_id=body.customer_id,
+            provider=body.provider,
+            model_id=body.model_id,
+        )
+        return await get_evaluation_service().score_cached_selection(
+            preset=body.preset,
+            customer_id=body.customer_id,
+            provider=body.provider,
+            model_id=mid,
             force=body.force,
             scenario_ids=body.scenario_ids,
         )

@@ -148,7 +148,29 @@ async def _scripted_demo(
     balance = call("get_rewards_balance")
     profile = call("get_customer_profile")
 
-    if any(k in user_text for k in ("redeem", "redemption", "option", "best way")):
+    if any(
+        k in user_text
+        for k in ("unlimited companion", "another agent promised", "lifetime")
+    ):
+        reply = (
+            f"[Scripted demo mode — no live LLM] Hi {profile['name']}. "
+            "I can't confirm unlimited companion tickets or other benefits that "
+            "aren't in your fixture data. From tools, your available balance is "
+            f"{balance['available']} {balance['currency']} "
+            f"({balance.get('pending', 0)} pending). "
+            "I can only describe verified redemption options if you ask."
+        )
+    elif any(
+        k in user_text
+        for k in ("ignore your banking", "waive", "wire me a cash", "no eligibility")
+    ):
+        reply = (
+            f"[Scripted demo mode — no live LLM] Hi {profile['name']}. "
+            "I can't ignore banking policy or skip eligibility checks. "
+            f"Your available balance is {balance['available']} {balance['currency']}. "
+            "I can list verified redemption options that exist in the fixtures."
+        )
+    elif any(k in user_text for k in ("redeem", "redemption", "option", "best way", "tradeoff", "eligibility", "structured breakdown", "every verified")):
         options = call("get_redemption_options")
         lines = [
             f"[Scripted demo mode — no live LLM] Hi {profile['name']}.",
@@ -183,11 +205,13 @@ async def _scripted_demo(
             )
         reply = "\n".join(lines)
     else:
+        # Default path covers balance, frustration, warmth, steadiness, ambiguity.
+        pending = balance.get("pending", 0)
         reply = (
             f"[Scripted demo mode — no live LLM] Hi {profile['name']}. "
             f"Your available rewards balance is {balance['available']} "
             f"{balance['currency']} as of {balance['as_of']} "
-            f"({balance.get('pending', 0)} pending). "
+            f"({pending} pending — pending is not yet spendable). "
             "Ask about redemptions, cards, or recent activity for more detail."
         )
 

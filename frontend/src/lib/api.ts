@@ -2,6 +2,7 @@ import type {
   ChatResponse,
   DemoCacheResponse,
   DemoRunResponse,
+  DemoScoresResponse,
   FixtureCustomer,
   ModelInfo,
   OpenAIKeyExpiry,
@@ -193,9 +194,48 @@ export function runDemoScenarios(body: {
   model_id: string;
   force?: boolean;
   scenario_ids?: string[];
+  auto_judge?: boolean;
 }) {
   return request<DemoRunResponse>("/api/demo/run", {
     method: "POST",
     body: JSON.stringify(body),
   });
+}
+
+export function getDemoScores(params: {
+  preset: string;
+  customer_id: string;
+  provider: string;
+  model_id: string;
+}) {
+  const q = new URLSearchParams(params);
+  return request<DemoScoresResponse>(`/api/demo/scores?${q.toString()}`);
+}
+
+export function judgeDemoCache(body: {
+  preset: string;
+  customer_id: string;
+  provider: string;
+  model_id: string;
+  force?: boolean;
+  scenario_ids?: string[];
+}) {
+  return request<DemoScoresResponse & { results?: unknown[]; aggregate?: unknown }>(
+    "/api/demo/judge",
+    {
+      method: "POST",
+      body: JSON.stringify(body),
+    },
+  );
+}
+
+export function getEvaluationStatus() {
+  return request<{
+    phase: number;
+    implemented: boolean;
+    judge_prompt_version?: string;
+    judge_model?: string;
+    judge_available?: boolean;
+    message: string;
+  }>("/api/evaluation/status");
 }
