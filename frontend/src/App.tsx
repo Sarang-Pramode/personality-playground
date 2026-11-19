@@ -1,10 +1,26 @@
 import { useEffect, useMemo, useState } from "react";
+import { AdminPanel } from "./components/AdminPanel";
+import {
+  AuthScreens,
+  DeniedScreen,
+  PendingScreen,
+} from "./components/AuthScreens";
 import { ChatPanel } from "./components/ChatPanel";
 import { ConfigurePanel } from "./components/ConfigurePanel";
 import { DeveloperInspector } from "./components/DeveloperInspector";
 import { Header } from "./components/Header";
 import { VisualizePanel } from "./components/VisualizePanel";
-import { getFixtures, getHealth, previewPersonality, sendChat } from "./lib/api";
+import {
+  ApiError,
+  getAuthConfig,
+  getFixtures,
+  getHealth,
+  getMe,
+  logout as apiLogout,
+  previewPersonality,
+  sendChat,
+  type AuthUser,
+} from "./lib/api";
 import {
   deleteSavedProfile,
   exportProfilesJson,
@@ -35,7 +51,17 @@ function detectPreset(profile: TraitProfile): PresetName | "custom" {
   return "custom";
 }
 
-export default function App() {
+function Studio({
+  user,
+  onLogout,
+  showAdmin,
+  onToggleAdmin,
+}: {
+  user: AuthUser;
+  onLogout: () => void;
+  showAdmin: boolean;
+  onToggleAdmin: () => void;
+}) {
   const [profile, setProfile] = useState<TraitProfile>({ ...PRESETS.balanced });
   const [activePreset, setActivePreset] = useState<PresetName | "custom">(
     "balanced",
@@ -83,7 +109,6 @@ export default function App() {
         if (fixtures.scenarios[0]) {
           setScenarioId(fixtures.scenarios[0].scenario_id);
         }
-        // Prefer first available live model, else demo
         const live =
           health.models.find((m) => m.available && m.provider !== "demo") ||
           health.models.find((m) => m.provider === "demo");
@@ -124,7 +149,7 @@ export default function App() {
       } catch {
         if (!cancelled) {
           setBehaviorSummary(
-            "Could not reach /api/personality/preview — is the backend running?",
+            "Could not reach /api/personality/preview — check auth/backend.",
           );
         }
       }
@@ -136,7 +161,8 @@ export default function App() {
   }, [profile, activePreset]);
 
   const modeInfo = useMemo(() => {
-    if (!latestMeta) return { label: null as string | null, tone: "neutral" as const };
+    if (!latestMeta)
+      return { label: null as string | null, tone: "neutral" as const };
     if (latestMeta.mode === "scripted_demo")
       return { label: "Scripted demo mode", tone: "warn" as const };
     if (latestMeta.mode === "error")
@@ -155,11 +181,6 @@ export default function App() {
   function onPreset(name: PresetName) {
     setProfile({ ...PRESETS[name] });
     setActivePreset(name);
-  }
-
-  function onProviderChange(nextProvider: string, nextModelId: string | null) {
-    setProvider(nextProvider);
-    setModelId(nextModelId);
   }
 
   async function onSend() {
@@ -186,13 +207,15 @@ export default function App() {
       });
       setSessionId(res.session_id);
       setLatestMeta(res.metadata);
-      const assistant: ChatMessage = {
-        id: res.run_id,
-        role: "assistant",
-        content: res.reply,
-        metadata: res.metadata,
-      };
-      setMessages((m) => [...m, assistant]);
+      setMessages((m) => [
+        ...m,
+        {
+          id: res.run_id,
+          role: "assistant",
+          content: res.reply,
+          metadata: res.metadata,
+        },
+      ]);
       if (res.error) {
         setMessages((m) => [
           ...m,
@@ -226,85 +249,220 @@ export default function App() {
     setLatestMeta(null);
   }
 
-  function onCustomerChange(id: string) {
-    setCustomerId(id);
-    onReset();
-  }
-
   return (
     <div className="flex min-h-full flex-col">
       <Header
         models={models}
         provider={provider}
         modelId={modelId}
-        onProviderChange={onProviderChange}
+        onProviderChange={(p, m) => {
+          setProvider(p);
+          setModelId(m);
+        }}
         healthOk={healthOk}
         llmLive={llmLive}
+        user={user}
+        onLogout={user.id === "guest" ? undefined : onLogout}
+        showAdminToggle={user.id !== "guest" && user.role === "admin"}
+        adminOpen={showAdmin}
+        onToggleAdmin={onToggleAdmin}
       />
 
-      <main className="mx-auto grid w-full max-w-[1600px] flex-1 grid-cols-1 gap-3 p-3 lg:grid-cols-[27%_32%_41%] lg:gap-3">
-        <ConfigurePanel
-          profile={profile}
-          activePreset={activePreset}
-          saved={saved}
-          saveName={saveName}
-          onSaveNameChange={setSaveName}
-          onTraitChange={onTraitChange}
-          onPreset={onPreset}
-          onSave={() => {
-            const next = saveProfile(saveName.trim(), profile, activePreset);
-            setSaved(next);
-            setSaveName("");
-          }}
-          onLoad={(id) => {
-            const found = saved.find((p) => p.id === id);
-            if (!found) return;
-            setProfile({ ...found.profile });
-            setActivePreset(found.preset);
-          }}
-          onDelete={(id) => setSaved(deleteSavedProfile(id))}
-          onExport={() => {
-            const blob = new Blob([exportProfilesJson(saved)], {
-              type: "application/json",
-            });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = "personality-profiles.json";
-            a.click();
-            URL.revokeObjectURL(url);
-          }}
-        />
-        <VisualizePanel profile={profile} behaviorSummary={behaviorSummary} />
-        <ChatPanel
-          customers={customers}
-          scenarios={scenarios}
-          customerId={customerId}
-          scenarioId={scenarioId}
-          messages={messages}
-          input={input}
-          busy={busy}
-          modeLabel={modeInfo.label}
-          modeTone={modeInfo.tone}
-          onCustomerChange={onCustomerChange}
-          onScenarioChange={setScenarioId}
-          onInputChange={setInput}
-          onSend={onSend}
-          onReset={onReset}
-          onUseSuggested={() => {
-            const s = scenarios.find((x) => x.scenario_id === scenarioId);
-            if (s) setInput(s.suggested_prompt);
-          }}
-        />
-      </main>
-
-      <div className="mx-auto w-full max-w-[1600px] px-3 pb-4">
-        <DeveloperInspector latest={latestMeta} previewPrompt={previewPrompt} />
-        <p className="mt-2 text-center text-[11px] text-slate-400">
-          Phase 2 stubs only — no judges, batch uploads, or fabricated Measured
-          overlays in this MVP.
-        </p>
-      </div>
+      {showAdmin && user.role === "admin" ? (
+        <div className="mx-auto w-full max-w-[1600px] p-3">
+          <AdminPanel />
+        </div>
+      ) : (
+        <>
+          <main className="mx-auto grid w-full max-w-[1600px] flex-1 grid-cols-1 gap-3 p-3 lg:grid-cols-[27%_32%_41%]">
+            <ConfigurePanel
+              profile={profile}
+              activePreset={activePreset}
+              saved={saved}
+              saveName={saveName}
+              onSaveNameChange={setSaveName}
+              onTraitChange={onTraitChange}
+              onPreset={onPreset}
+              onSave={() => {
+                const next = saveProfile(
+                  saveName.trim(),
+                  profile,
+                  activePreset,
+                );
+                setSaved(next);
+                setSaveName("");
+              }}
+              onLoad={(id) => {
+                const found = saved.find((p) => p.id === id);
+                if (!found) return;
+                setProfile({ ...found.profile });
+                setActivePreset(found.preset);
+              }}
+              onDelete={(id) => setSaved(deleteSavedProfile(id))}
+              onExport={() => {
+                const blob = new Blob([exportProfilesJson(saved)], {
+                  type: "application/json",
+                });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = "personality-profiles.json";
+                a.click();
+                URL.revokeObjectURL(url);
+              }}
+            />
+            <VisualizePanel
+              profile={profile}
+              behaviorSummary={behaviorSummary}
+            />
+            <ChatPanel
+              customers={customers}
+              scenarios={scenarios}
+              customerId={customerId}
+              scenarioId={scenarioId}
+              messages={messages}
+              input={input}
+              busy={busy}
+              modeLabel={modeInfo.label}
+              modeTone={modeInfo.tone}
+              onCustomerChange={(id) => {
+                setCustomerId(id);
+                onReset();
+              }}
+              onScenarioChange={setScenarioId}
+              onInputChange={setInput}
+              onSend={onSend}
+              onReset={onReset}
+              onUseSuggested={() => {
+                const s = scenarios.find((x) => x.scenario_id === scenarioId);
+                if (s) setInput(s.suggested_prompt);
+              }}
+            />
+          </main>
+          <div className="mx-auto w-full max-w-[1600px] px-3 pb-4">
+            <DeveloperInspector
+              latest={latestMeta}
+              previewPrompt={previewPrompt}
+            />
+          </div>
+        </>
+      )}
     </div>
+  );
+}
+
+const GUEST_USER: AuthUser = {
+  id: "guest",
+  email: "guest@local",
+  username: "guest",
+  status: "approved",
+  role: "user",
+  oauth_provider: null,
+  created_at: "",
+  updated_at: "",
+};
+
+export default function App() {
+  const [boot, setBoot] = useState(true);
+  const [authEnabled, setAuthEnabled] = useState(false);
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [googleEnabled, setGoogleEnabled] = useState(false);
+  const [bootstrapAdmin, setBootstrapAdmin] = useState(false);
+  const [showAdmin, setShowAdmin] = useState(false);
+  const [bootError, setBootError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const cfg = await getAuthConfig();
+        if (cancelled) return;
+        const enabled = Boolean(cfg.auth_enabled);
+        setAuthEnabled(enabled);
+        setGoogleEnabled(cfg.google_oauth);
+        setBootstrapAdmin(Boolean(cfg.bootstrap_admin));
+        if (!enabled) {
+          setUser(GUEST_USER);
+          return;
+        }
+        const me = await getMe();
+        if (cancelled) return;
+        setUser(me.authenticated ? me.user : null);
+      } catch (err) {
+        if (!cancelled) {
+          setBootError(
+            err instanceof ApiError
+              ? err.detail
+              : "Could not reach auth API",
+          );
+        }
+      } finally {
+        if (!cancelled) setBoot(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function handleLogout() {
+    if (!authEnabled) return;
+    try {
+      await apiLogout();
+    } catch {
+      /* ignore */
+    }
+    setUser(null);
+    setShowAdmin(false);
+  }
+
+  if (boot) {
+    return (
+      <div className="flex min-h-full items-center justify-center text-sm text-slate-500">
+        Loading…
+      </div>
+    );
+  }
+
+  if (bootError) {
+    return (
+      <div className="flex min-h-full items-center justify-center px-4 text-sm text-red-700">
+        {bootError}
+      </div>
+    );
+  }
+
+  if (authEnabled && !user) {
+    return (
+      <AuthScreens
+        googleEnabled={googleEnabled}
+        bootstrapAdmin={bootstrapAdmin}
+        onAuthed={(u) => {
+          setUser(u);
+          setBootstrapAdmin(false);
+        }}
+      />
+    );
+  }
+
+  if (authEnabled && user?.status === "pending") {
+    return <PendingScreen user={user} onLogout={() => void handleLogout()} />;
+  }
+
+  if (
+    authEnabled &&
+    user &&
+    (user.status === "denied" || user.status === "revoked")
+  ) {
+    return <DeniedScreen user={user} onLogout={() => void handleLogout()} />;
+  }
+
+  return (
+    <Studio
+      user={user ?? GUEST_USER}
+      onLogout={() => void handleLogout()}
+      showAdmin={showAdmin}
+      onToggleAdmin={() => setShowAdmin((v) => !v)}
+    />
   );
 }

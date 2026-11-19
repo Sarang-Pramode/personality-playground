@@ -1,4 +1,5 @@
-import { Badge, Select } from "./ui";
+import { Badge, Button, Select } from "./ui";
+import type { AuthUser } from "../lib/api";
 import type { ModelInfo } from "../types";
 
 type Props = {
@@ -8,6 +9,11 @@ type Props = {
   onProviderChange: (provider: string, modelId: string | null) => void;
   healthOk: boolean | null;
   llmLive: boolean;
+  user?: AuthUser | null;
+  onLogout?: () => void;
+  showAdminToggle?: boolean;
+  adminOpen?: boolean;
+  onToggleAdmin?: () => void;
 };
 
 export function Header({
@@ -17,6 +23,11 @@ export function Header({
   onProviderChange,
   healthOk,
   llmLive,
+  user,
+  onLogout,
+  showAdminToggle,
+  adminOpen,
+  onToggleAdmin,
 }: Props) {
   const selectedKey = `${provider}:${modelId ?? ""}`;
 
@@ -87,6 +98,25 @@ export function Header({
             <Badge tone="warn">No live keys</Badge>
           )}
         </div>
+
+        {user && user.id !== "guest" ? (
+          <div className="flex items-center gap-2 border-l border-slate-200 pl-3">
+            <span className="text-xs text-slate-600">
+              {user.username}
+              {user.role === "admin" ? " · admin" : ""}
+            </span>
+            {showAdminToggle ? (
+              <Button variant="secondary" onClick={onToggleAdmin}>
+                {adminOpen ? "Studio" : "Allowlist"}
+              </Button>
+            ) : null}
+            {onLogout ? (
+              <Button variant="ghost" onClick={onLogout}>
+                Sign out
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
       </div>
     </header>
   );

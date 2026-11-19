@@ -1,15 +1,56 @@
-"""Tests for chat orchestration and API contracts."""
+"""Tests for chat orchestration and API contracts (with approved session)."""
+
+import os
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import text
 
+os.environ.setdefault("AUTH_ENABLED", "true")
+os.environ.setdefault("DATABASE_URL", "sqlite+pysqlite:///:memory:")
+os.environ.setdefault("SESSION_SECRET", "test-session-secret-please-change-32b")
+os.environ.setdefault("ADMIN_EMAIL", "admin@example.com")
+os.environ.setdefault("APP_BASE_URL", "http://testserver")
+os.environ.setdefault("CORS_ORIGINS", "http://testserver")
+
+from app.auth.passwords import hash_password
+from app.auth.users import ensure_admin_seed, get_user_by_email
 from app.chat.service import ChatService
-from app.main import app
+from app.config import get_settings
+from app.db import get_session_factory, reset_engine, run_migrations
 
 
 @pytest.fixture
 def client():
-    return TestClient(app)
+    get_settings.cache_clear()
+    reset_engine()
+    settings = get_settings()
+    run_migrations(settings)
+    factory = get_session_factory(settings)
+    session = factory()
+    try:
+        ensure_admin_seed(session, settings)
+        admin = get_user_by_email(session, settings.admin_email, settings)
+        assert admin
+        session.execute(
+            text("UPDATE users SET password_hash = :h WHERE id = :id"),
+            {"h": hash_password("adminpass12"), "id": admin.id},
+        )
+        session.commit()
+    finally:
+        session.close()
+
+    from app.main import app
+
+    with TestClient(app) as c:
+        login = c.post(
+            "/api/auth/login",
+            json={"login": settings.admin_email, "password": "adminpass12"},
+        )
+        assert login.status_code == 200
+        yield c
+    get_settings.cache_clear()
+    reset_engine()
 
 
 def test_health(client):
@@ -70,7 +111,6 @@ async def test_openai_unavailable_visible_error():
         session_id=None,
         scenario_id=None,
     )
-    # Without API key in test env, should surface error — never silent fake live
     assert result["metadata"]["mode"] == "error"
     assert result["error"]
     assert "OPENAI_API_KEY" in result["reply"] or "not configured" in result["reply"]

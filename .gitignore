@@ -30,3 +30,6 @@ frontend/dist/
 coverage/
 htmlcov/
 *.log
+
+.vercel
+.env.local
