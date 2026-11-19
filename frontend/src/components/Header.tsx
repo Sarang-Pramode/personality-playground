@@ -99,7 +99,7 @@ export function Header({
           )}
         </div>
 
-        {user ? (
+        {user && user.id !== "guest" ? (
           <div className="flex items-center gap-2 border-l border-slate-200 pl-3">
             <span className="text-xs text-slate-600">
               {user.username}
@@ -110,9 +110,11 @@ export function Header({
                 {adminOpen ? "Studio" : "Allowlist"}
               </Button>
             ) : null}
-            <Button variant="ghost" onClick={onLogout}>
-              Sign out
-            </Button>
+            {onLogout ? (
+              <Button variant="ghost" onClick={onLogout}>
+                Sign out
+              </Button>
+            ) : null}
           </div>
         ) : null}
       </div>

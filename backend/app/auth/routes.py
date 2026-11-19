@@ -68,11 +68,15 @@ def auth_config(
     settings: Settings = Depends(get_settings),
 ) -> dict:
     return {
+        "auth_enabled": settings.auth_enabled,
         "google_oauth": settings.google_oauth_configured,
         "admin_email_domain_hint": settings.admin_email.split("@")[-1]
         if "@" in settings.admin_email
         else None,
-        "bootstrap_admin": _admin_needs_password_bootstrap(db, settings),
+        "bootstrap_admin": (
+            settings.auth_enabled
+            and _admin_needs_password_bootstrap(db, settings)
+        ),
     }
 
 
@@ -199,7 +203,7 @@ def login(
 def logout(
     response: Response,
     settings: Settings = Depends(get_settings),
-    _user: User = Depends(require_user),
+    _user: User | None = Depends(require_user),
 ) -> dict:
     clear_session_cookie(response, settings)
     return {"ok": True}

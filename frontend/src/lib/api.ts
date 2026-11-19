@@ -64,6 +64,7 @@ export function getHealth() {
 
 export function getAuthConfig() {
   return request<{
+    auth_enabled?: boolean;
     google_oauth: boolean;
     bootstrap_admin?: boolean;
     admin_email_domain_hint?: string | null;

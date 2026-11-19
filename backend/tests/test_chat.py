@@ -6,6 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 
+os.environ.setdefault("AUTH_ENABLED", "true")
 os.environ.setdefault("DATABASE_URL", "sqlite+pysqlite:///:memory:")
 os.environ.setdefault("SESSION_SECRET", "test-session-secret-please-change-32b")
 os.environ.setdefault("ADMIN_EMAIL", "admin@example.com")

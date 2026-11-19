@@ -36,13 +36,27 @@ def get_optional_user(
     return get_user_by_id(db, user_id, settings)
 
 
-def require_user(user: User | None = Depends(get_optional_user)) -> User:
+def require_user(
+    user: User | None = Depends(get_optional_user),
+    settings: Settings = Depends(get_settings),
+) -> User | None:
+    """Require a session when AUTH_ENABLED; otherwise allow anonymous."""
+    if not settings.auth_enabled:
+        return user
     if user is None:
         raise HTTPException(status_code=401, detail="Authentication required")
     return user
 
 
-def require_approved(user: User = Depends(require_user)) -> User:
+def require_approved(
+    user: User | None = Depends(get_optional_user),
+    settings: Settings = Depends(get_settings),
+) -> User | None:
+    """Gate playground APIs when AUTH_ENABLED; open access when disabled."""
+    if not settings.auth_enabled:
+        return None
+    if user is None:
+        raise HTTPException(status_code=401, detail="Authentication required")
     if user.status == "pending":
         raise HTTPException(status_code=403, detail="Account pending admin approval")
     if user.status in ("denied", "revoked"):
@@ -52,7 +66,20 @@ def require_approved(user: User = Depends(require_user)) -> User:
     return user
 
 
-def require_admin(user: User = Depends(require_approved)) -> User:
+def require_admin(
+    user: User | None = Depends(get_optional_user),
+    settings: Settings = Depends(get_settings),
+) -> User:
+    """Admin routes always require an approved admin session (even if playground is open)."""
+    if not settings.auth_enabled:
+        raise HTTPException(
+            status_code=503,
+            detail="Admin API unavailable while AUTH_ENABLED=false",
+        )
+    if user is None:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    if user.status != "approved":
+        raise HTTPException(status_code=403, detail="Account not approved")
     if user.role != "admin":
         raise HTTPException(status_code=403, detail="Admin only")
     return user

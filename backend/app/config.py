@@ -2,6 +2,7 @@
 
 from functools import lru_cache
 
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -10,6 +11,7 @@ class Settings(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
         extra="ignore",
+        populate_by_name=True,
     )
 
     openai_api_key: str = ""
@@ -22,7 +24,12 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
     prompt_version: str = "personality-compiler-v1"
 
-    # Auth / allowlist
+    # Auth / allowlist — set AUTH_ENABLED=true (or AUTH_REQUIRED=true) to gate APIs + UI.
+    # Default false: open playground; auth code remains for later re-enable.
+    auth_enabled: bool = Field(
+        default=False,
+        validation_alias=AliasChoices("AUTH_ENABLED", "AUTH_REQUIRED"),
+    )
     database_url: str = "sqlite+pysqlite:///:memory:"
     session_secret: str = "dev-only-change-me-session-secret-32chars"
     data_encryption_key: str = ""  # Fernet key (url-safe base64); optional

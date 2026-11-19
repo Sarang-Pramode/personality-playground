@@ -262,8 +262,8 @@ function Studio({
         healthOk={healthOk}
         llmLive={llmLive}
         user={user}
-        onLogout={onLogout}
-        showAdminToggle={user.role === "admin"}
+        onLogout={user.id === "guest" ? undefined : onLogout}
+        showAdminToggle={user.id !== "guest" && user.role === "admin"}
         adminOpen={showAdmin}
         onToggleAdmin={onToggleAdmin}
       />
@@ -351,8 +351,20 @@ function Studio({
   );
 }
 
+const GUEST_USER: AuthUser = {
+  id: "guest",
+  email: "guest@local",
+  username: "guest",
+  status: "approved",
+  role: "user",
+  oauth_provider: null,
+  created_at: "",
+  updated_at: "",
+};
+
 export default function App() {
   const [boot, setBoot] = useState(true);
+  const [authEnabled, setAuthEnabled] = useState(false);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [googleEnabled, setGoogleEnabled] = useState(false);
   const [bootstrapAdmin, setBootstrapAdmin] = useState(false);
@@ -363,10 +375,18 @@ export default function App() {
     let cancelled = false;
     (async () => {
       try {
-        const [me, cfg] = await Promise.all([getMe(), getAuthConfig()]);
+        const cfg = await getAuthConfig();
         if (cancelled) return;
+        const enabled = Boolean(cfg.auth_enabled);
+        setAuthEnabled(enabled);
         setGoogleEnabled(cfg.google_oauth);
         setBootstrapAdmin(Boolean(cfg.bootstrap_admin));
+        if (!enabled) {
+          setUser(GUEST_USER);
+          return;
+        }
+        const me = await getMe();
+        if (cancelled) return;
         setUser(me.authenticated ? me.user : null);
       } catch (err) {
         if (!cancelled) {
@@ -386,6 +406,7 @@ export default function App() {
   }, []);
 
   async function handleLogout() {
+    if (!authEnabled) return;
     try {
       await apiLogout();
     } catch {
@@ -411,7 +432,7 @@ export default function App() {
     );
   }
 
-  if (!user) {
+  if (authEnabled && !user) {
     return (
       <AuthScreens
         googleEnabled={googleEnabled}
@@ -424,17 +445,21 @@ export default function App() {
     );
   }
 
-  if (user.status === "pending") {
+  if (authEnabled && user?.status === "pending") {
     return <PendingScreen user={user} onLogout={() => void handleLogout()} />;
   }
 
-  if (user.status === "denied" || user.status === "revoked") {
+  if (
+    authEnabled &&
+    user &&
+    (user.status === "denied" || user.status === "revoked")
+  ) {
     return <DeniedScreen user={user} onLogout={() => void handleLogout()} />;
   }
 
   return (
     <Studio
-      user={user}
+      user={user ?? GUEST_USER}
       onLogout={() => void handleLogout()}
       showAdmin={showAdmin}
       onToggleAdmin={() => setShowAdmin((v) => !v)}

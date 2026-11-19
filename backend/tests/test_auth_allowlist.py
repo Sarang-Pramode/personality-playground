@@ -7,7 +7,8 @@ import os
 import pytest
 from fastapi.testclient import TestClient
 
-# Isolate settings before importing app
+# Isolate settings before importing app — security suite runs with auth ON
+os.environ["AUTH_ENABLED"] = "true"
 os.environ["DATABASE_URL"] = "sqlite+pysqlite:///:memory:"
 os.environ["SESSION_SECRET"] = "test-session-secret-please-change-32b"
 os.environ["ADMIN_EMAIL"] = "admin@example.com"
@@ -26,6 +27,7 @@ from app.db import reset_engine, run_migrations  # noqa: E402
 def client(monkeypatch):
     get_settings.cache_clear()
     reset_engine()
+    monkeypatch.setenv("AUTH_ENABLED", "true")
     monkeypatch.setenv("DATABASE_URL", "sqlite+pysqlite:///:memory:")
     monkeypatch.setenv("SESSION_SECRET", "test-session-secret-please-change-32b")
     monkeypatch.setenv("ADMIN_EMAIL", "admin@example.com")
@@ -345,3 +347,35 @@ def test_bootstrap_disabled_without_token(client, monkeypatch):
         },
     )
     assert r.status_code == 503
+
+
+def test_auth_disabled_opens_playground(monkeypatch):
+    """AUTH_ENABLED=false skips gates; auth code remains for flip-back."""
+    monkeypatch.setenv("AUTH_ENABLED", "false")
+    monkeypatch.setenv("DATABASE_URL", "sqlite+pysqlite:///:memory:")
+    monkeypatch.setenv("SESSION_SECRET", "test-session-secret-please-change-32b")
+    monkeypatch.setenv("ADMIN_EMAIL", "admin@example.com")
+    get_settings.cache_clear()
+    reset_engine()
+    run_migrations(get_settings())
+
+    from app.main import app
+
+    with TestClient(app) as c:
+        health = c.get("/api/health")
+        assert health.status_code == 200
+        assert health.json()["auth_enabled"] is False
+        assert c.get("/api/auth/config").json()["auth_enabled"] is False
+        assert c.get("/api/fixtures").status_code == 200
+        chat = c.post(
+            "/api/chat",
+            json={
+                "message": "What is my rewards balance?",
+                "customer_id": "customer_A",
+                "provider": "demo",
+            },
+        )
+        assert chat.status_code == 200
+        body = chat.json()
+        assert "Scripted demo mode" in body["reply"]
+        assert body["metadata"]["mode"] == "scripted_demo"
