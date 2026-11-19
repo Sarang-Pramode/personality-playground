@@ -27,6 +27,8 @@ class Settings(BaseSettings):
     session_secret: str = "dev-only-change-me-session-secret-32chars"
     data_encryption_key: str = ""  # Fernet key (url-safe base64); optional
     admin_email: str = "sarangpramode1997@gmail.com"
+    # One-time admin password bootstrap (empty = disabled). Remove after use.
+    bootstrap_token: str = ""
     app_base_url: str = "http://localhost:5173"
     cookie_secure: bool = False
     cookie_samesite: str = "lax"

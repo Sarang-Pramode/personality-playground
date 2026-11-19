@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import re
 import secrets
 
@@ -13,7 +14,12 @@ from app.auth.deps import get_db, get_optional_user, require_admin, require_user
 from app.auth.email_notify import notify_admin_pending_user
 from app.auth.google_oauth import build_google_auth_url, exchange_google_code
 from app.auth.passwords import hash_password, verify_password
-from app.auth.schemas import LoginRequest, SignupRequest, StatusUpdateRequest
+from app.auth.schemas import (
+    BootstrapAdminPasswordRequest,
+    LoginRequest,
+    SignupRequest,
+    StatusUpdateRequest,
+)
 from app.auth.sessions import (
     clear_session_cookie,
     create_session_token,
@@ -26,6 +32,7 @@ from app.auth.users import (
     get_user_by_oauth,
     get_user_by_username,
     list_users,
+    set_user_password,
     set_user_status,
 )
 from app.config import Settings, get_settings
@@ -41,13 +48,79 @@ def _issue_session(response: Response, user: User, settings: Settings) -> None:
     set_session_cookie(response, token, settings)
 
 
+def _bootstrap_token_ok(expected: str, provided: str) -> bool:
+    """Constant-time compare via SHA-256 digests (handles unequal lengths)."""
+    a = hashlib.sha256(expected.encode("utf-8")).digest()
+    b = hashlib.sha256(provided.encode("utf-8")).digest()
+    return secrets.compare_digest(a, b)
+
+
+def _admin_needs_password_bootstrap(db: Session, settings: Settings) -> bool:
+    if not settings.bootstrap_token.strip():
+        return False
+    admin = get_user_by_email(db, settings.admin_email.strip().lower(), settings)
+    return admin is not None and not admin.password_hash
+
+
 @router.get("/config")
-def auth_config(settings: Settings = Depends(get_settings)) -> dict:
+def auth_config(
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> dict:
     return {
         "google_oauth": settings.google_oauth_configured,
         "admin_email_domain_hint": settings.admin_email.split("@")[-1]
         if "@" in settings.admin_email
         else None,
+        "bootstrap_admin": _admin_needs_password_bootstrap(db, settings),
+    }
+
+
+@router.post("/bootstrap-admin-password")
+def bootstrap_admin_password(
+    body: BootstrapAdminPasswordRequest,
+    response: Response,
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> dict:
+    """One-time: set password for seeded ADMIN_EMAIL when password_hash is null.
+
+    Requires BOOTSTRAP_TOKEN env. After success, remove BOOTSTRAP_TOKEN from Vercel
+    (endpoint also refuses once a password_hash exists).
+    """
+    expected = settings.bootstrap_token.strip()
+    if not expected:
+        raise HTTPException(
+            status_code=503,
+            detail="Admin password bootstrap is not enabled",
+        )
+    if not _bootstrap_token_ok(expected, body.bootstrap_token.strip()):
+        raise HTTPException(status_code=401, detail="Invalid bootstrap token")
+
+    email = str(body.email).strip().lower()
+    if email != settings.admin_email.strip().lower():
+        raise HTTPException(status_code=403, detail="Email is not the admin account")
+
+    user = get_user_by_email(db, email, settings)
+    if user is None:
+        raise HTTPException(status_code=404, detail="Admin user not found")
+    if user.password_hash:
+        raise HTTPException(
+            status_code=409,
+            detail="Admin password already set; bootstrap disabled",
+        )
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Not an admin account")
+
+    updated = set_user_password(
+        db, user.id, hash_password(body.password), settings
+    )
+    assert updated is not None
+    _issue_session(response, updated, settings)
+    return {
+        "user": updated.public_dict(),
+        "bootstrap_complete": True,
+        "next_step": "Remove BOOTSTRAP_TOKEN from Vercel env and redeploy",
     }
 
 

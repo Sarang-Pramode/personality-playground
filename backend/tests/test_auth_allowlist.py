@@ -268,3 +268,80 @@ def test_login_wrong_password_401(client):
         json={"login": "xuser", "password": "wrong-password"},
     )
     assert r.status_code == 401
+
+
+def test_bootstrap_admin_password_one_time(client, monkeypatch):
+    monkeypatch.setenv("BOOTSTRAP_TOKEN", "one-time-bootstrap-secret")
+    get_settings.cache_clear()
+
+    cfg = client.get("/api/auth/config")
+    assert cfg.status_code == 200
+    assert cfg.json()["bootstrap_admin"] is True
+
+    bad = client.post(
+        "/api/auth/bootstrap-admin-password",
+        json={
+            "email": "admin@example.com",
+            "password": "newadminpass1",
+            "bootstrap_token": "wrong-token",
+        },
+    )
+    assert bad.status_code == 401
+
+    wrong_email = client.post(
+        "/api/auth/bootstrap-admin-password",
+        json={
+            "email": "other@example.com",
+            "password": "newadminpass1",
+            "bootstrap_token": "one-time-bootstrap-secret",
+        },
+    )
+    assert wrong_email.status_code == 403
+
+    ok = client.post(
+        "/api/auth/bootstrap-admin-password",
+        json={
+            "email": "admin@example.com",
+            "password": "newadminpass1",
+            "bootstrap_token": "one-time-bootstrap-secret",
+        },
+    )
+    assert ok.status_code == 200
+    body = ok.json()
+    assert body["bootstrap_complete"] is True
+    assert body["user"]["role"] == "admin"
+    assert body["user"]["status"] == "approved"
+
+    # Second call refused once password_hash exists
+    again = client.post(
+        "/api/auth/bootstrap-admin-password",
+        json={
+            "email": "admin@example.com",
+            "password": "anotherpass99",
+            "bootstrap_token": "one-time-bootstrap-secret",
+        },
+    )
+    assert again.status_code == 409
+
+    client.post("/api/auth/logout")
+    login = client.post(
+        "/api/auth/login",
+        json={"login": "admin@example.com", "password": "newadminpass1"},
+    )
+    assert login.status_code == 200
+    assert login.json()["user"]["role"] == "admin"
+
+
+def test_bootstrap_disabled_without_token(client, monkeypatch):
+    monkeypatch.delenv("BOOTSTRAP_TOKEN", raising=False)
+    get_settings.cache_clear()
+    assert client.get("/api/auth/config").json()["bootstrap_admin"] is False
+    r = client.post(
+        "/api/auth/bootstrap-admin-password",
+        json={
+            "email": "admin@example.com",
+            "password": "newadminpass1",
+            "bootstrap_token": "anything",
+        },
+    )
+    assert r.status_code == 503

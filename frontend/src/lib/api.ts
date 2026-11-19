@@ -63,7 +63,11 @@ export function getHealth() {
 }
 
 export function getAuthConfig() {
-  return request<{ google_oauth: boolean }>("/api/auth/config");
+  return request<{
+    google_oauth: boolean;
+    bootstrap_admin?: boolean;
+    admin_email_domain_hint?: string | null;
+  }>("/api/auth/config");
 }
 
 export function getMe() {
@@ -85,6 +89,21 @@ export function signup(body: {
 
 export function login(body: { login: string; password: string }) {
   return request<{ user: AuthUser }>("/api/auth/login", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function bootstrapAdminPassword(body: {
+  email: string;
+  password: string;
+  bootstrap_token: string;
+}) {
+  return request<{
+    user: AuthUser;
+    bootstrap_complete: boolean;
+    next_step: string;
+  }>("/api/auth/bootstrap-admin-password", {
     method: "POST",
     body: JSON.stringify(body),
   });

@@ -163,6 +163,23 @@ def set_user_status(
     return get_user_by_id(session, user_id, settings)
 
 
+def set_user_password(
+    session: Session,
+    user_id: str,
+    password_hash: str,
+    settings: Settings | None = None,
+) -> User | None:
+    settings = settings or get_settings()
+    session.execute(
+        text(
+            "UPDATE users SET password_hash = :h, updated_at = :t WHERE id = :id"
+        ),
+        {"h": password_hash, "t": _utcnow(), "id": user_id},
+    )
+    session.commit()
+    return get_user_by_id(session, user_id, settings)
+
+
 def list_users(
     session: Session,
     *,

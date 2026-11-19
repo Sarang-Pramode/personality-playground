@@ -1,5 +1,6 @@
 import { useState } from "react";
 import {
+  bootstrapAdminPassword,
   googleStartUrl,
   login,
   signup,
@@ -7,29 +8,44 @@ import {
 } from "../lib/api";
 import { Button, FieldLabel, TextInput } from "./ui";
 
-type Mode = "login" | "signup";
+type Mode = "login" | "signup" | "bootstrap";
 
 export function AuthScreens({
   googleEnabled,
+  bootstrapAdmin = false,
   onAuthed,
 }: {
   googleEnabled: boolean;
+  bootstrapAdmin?: boolean;
   onAuthed: (user: AuthUser) => void;
 }) {
-  const [mode, setMode] = useState<Mode>("login");
+  const [mode, setMode] = useState<Mode>(
+    bootstrapAdmin ? "bootstrap" : "login",
+  );
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loginId, setLoginId] = useState("");
+  const [bootstrapToken, setBootstrapToken] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     setError(null);
+    setNotice(null);
     try {
-      if (mode === "signup") {
+      if (mode === "bootstrap") {
+        const res = await bootstrapAdminPassword({
+          email,
+          password,
+          bootstrap_token: bootstrapToken,
+        });
+        setNotice(res.next_step);
+        onAuthed(res.user);
+      } else if (mode === "signup") {
         const res = await signup({ email, username, password });
         onAuthed(res.user);
       } else {
@@ -43,6 +59,13 @@ export function AuthScreens({
     }
   }
 
+  const title =
+    mode === "bootstrap"
+      ? "Set admin password"
+      : mode === "login"
+        ? "Sign in"
+        : "Create account";
+
   return (
     <div className="flex min-h-full items-center justify-center px-4 py-10">
       <div className="w-full max-w-md border border-[var(--border)] bg-white p-6 shadow-sm">
@@ -51,15 +74,16 @@ export function AuthScreens({
             Personality Playground
           </p>
           <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900">
-            {mode === "login" ? "Sign in" : "Create account"}
+            {title}
           </h1>
           <p className="mt-1 text-sm text-[var(--muted)]">
-            Access is allowlisted. New accounts stay pending until an admin
-            approves.
+            {mode === "bootstrap"
+              ? "One-time setup for the seeded admin account. Use the BOOTSTRAP_TOKEN from Vercel env (reveal in dashboard)."
+              : "Access is allowlisted. New accounts stay pending until an admin approves."}
           </p>
         </div>
 
-        <div className="mb-4 flex gap-2">
+        <div className="mb-4 flex flex-wrap gap-2">
           <Button
             type="button"
             variant={mode === "login" ? "primary" : "secondary"}
@@ -76,10 +100,43 @@ export function AuthScreens({
           >
             Sign up
           </Button>
+          {bootstrapAdmin ? (
+            <Button
+              type="button"
+              variant={mode === "bootstrap" ? "primary" : "secondary"}
+              className="flex-1"
+              onClick={() => setMode("bootstrap")}
+            >
+              Admin setup
+            </Button>
+          ) : null}
         </div>
 
         <form className="space-y-3" onSubmit={onSubmit}>
-          {mode === "signup" ? (
+          {mode === "bootstrap" ? (
+            <>
+              <div>
+                <FieldLabel>Admin email</FieldLabel>
+                <TextInput
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  autoComplete="email"
+                />
+              </div>
+              <div>
+                <FieldLabel>Bootstrap token</FieldLabel>
+                <TextInput
+                  type="password"
+                  required
+                  value={bootstrapToken}
+                  onChange={(e) => setBootstrapToken(e.target.value)}
+                  autoComplete="off"
+                />
+              </div>
+            </>
+          ) : mode === "signup" ? (
             <>
               <div>
                 <FieldLabel>Email</FieldLabel>
@@ -114,7 +171,9 @@ export function AuthScreens({
             </div>
           )}
           <div>
-            <FieldLabel>Password</FieldLabel>
+            <FieldLabel>
+              {mode === "bootstrap" ? "New password" : "Password"}
+            </FieldLabel>
             <TextInput
               type="password"
               required
@@ -122,7 +181,7 @@ export function AuthScreens({
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               autoComplete={
-                mode === "signup" ? "new-password" : "current-password"
+                mode === "login" ? "current-password" : "new-password"
               }
             />
           </div>
@@ -131,8 +190,19 @@ export function AuthScreens({
               {error}
             </p>
           ) : null}
+          {notice ? (
+            <p className="text-sm text-teal-800" role="status">
+              {notice}
+            </p>
+          ) : null}
           <Button type="submit" className="w-full" disabled={busy}>
-            {busy ? "Please wait…" : mode === "login" ? "Sign in" : "Sign up"}
+            {busy
+              ? "Please wait…"
+              : mode === "bootstrap"
+                ? "Set password & sign in"
+                : mode === "login"
+                  ? "Sign in"
+                  : "Sign up"}
           </Button>
         </form>
 

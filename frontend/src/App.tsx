@@ -355,6 +355,7 @@ export default function App() {
   const [boot, setBoot] = useState(true);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [googleEnabled, setGoogleEnabled] = useState(false);
+  const [bootstrapAdmin, setBootstrapAdmin] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
   const [bootError, setBootError] = useState<string | null>(null);
 
@@ -365,6 +366,7 @@ export default function App() {
         const [me, cfg] = await Promise.all([getMe(), getAuthConfig()]);
         if (cancelled) return;
         setGoogleEnabled(cfg.google_oauth);
+        setBootstrapAdmin(Boolean(cfg.bootstrap_admin));
         setUser(me.authenticated ? me.user : null);
       } catch (err) {
         if (!cancelled) {
@@ -413,7 +415,11 @@ export default function App() {
     return (
       <AuthScreens
         googleEnabled={googleEnabled}
-        onAuthed={(u) => setUser(u)}
+        bootstrapAdmin={bootstrapAdmin}
+        onAuthed={(u) => {
+          setUser(u);
+          setBootstrapAdmin(false);
+        }}
       />
     );
   }
