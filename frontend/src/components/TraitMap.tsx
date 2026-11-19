@@ -1,12 +1,17 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { PRESETS, type PresetName, type TraitProfile } from "../types";
 
 type TrailPoint = { x: number; y: number; t: number };
 
+/** Percent inset so edge markers (h-5/w-5) stay fully inside the chart. */
+const PLOT_PAD = 10;
+
 function toPct(profile: Pick<TraitProfile, "exploration" | "energy">) {
+  const span = 100 - 2 * PLOT_PAD;
   return {
-    x: ((profile.exploration - 1) / 8) * 100,
-    y: 100 - ((profile.energy - 1) / 8) * 100,
+    x: PLOT_PAD + ((profile.exploration - 1) / 8) * span,
+    // High energy → top (low CSS top%)
+    y: PLOT_PAD + (1 - (profile.energy - 1) / 8) * span,
   };
 }
 
@@ -16,6 +21,14 @@ const PRESET_MARKERS: { name: PresetName; short: string }[] = [
   { name: "explorer", short: "E" },
   { name: "supportive", short: "S" },
 ];
+
+/** Fan out markers that share the same exploration/energy so all letters stay visible. */
+function markerOffsets(count: number, index: number): { dx: number; dy: number } {
+  if (count <= 1) return { dx: 0, dy: 0 };
+  const radius = 4.5;
+  const angle = (Math.PI * 2 * index) / count - Math.PI / 2;
+  return { dx: Math.cos(angle) * radius, dy: Math.sin(angle) * radius };
+}
 
 /** Fixed-axis 2D map: X = Exploration, Y = Conversational Energy */
 export function TraitMap({ profile }: { profile: TraitProfile }) {
@@ -33,6 +46,29 @@ export function TraitMap({ profile }: { profile: TraitProfile }) {
     });
   }, [profile.exploration, profile.energy, pos.x, pos.y]);
 
+  const presetLayout = useMemo(() => {
+    const groups = new Map<string, number>();
+    return PRESET_MARKERS.map(({ name, short }) => {
+      const preset = PRESETS[name];
+      const cell = `${preset.exploration}:${preset.energy}`;
+      const indexInGroup = groups.get(cell) ?? 0;
+      groups.set(cell, indexInGroup + 1);
+      const base = toPct(preset);
+      return { name, short, preset, base, cell, indexInGroup };
+    }).map((entry) => {
+      const count = groups.get(entry.cell) ?? 1;
+      const { dx, dy } = markerOffsets(count, entry.indexInGroup);
+      return {
+        ...entry,
+        x: entry.base.x + dx,
+        y: entry.base.y + dy,
+      };
+    });
+  }, []);
+
+  const gridLines = [3, 5, 7];
+  const center = toPct({ exploration: 5, energy: 5 });
+
   return (
     <div>
       <div
@@ -40,27 +76,51 @@ export function TraitMap({ profile }: { profile: TraitProfile }) {
         role="img"
         aria-label={`Trait map at exploration ${profile.exploration}, energy ${profile.energy}`}
       >
-        {/* quadrant tint */}
-        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,transparent_49.5%,rgba(15,118,110,0.04)_50%),linear-gradient(0deg,transparent_49.5%,rgba(15,118,110,0.04)_50%)]" />
+        {/* quadrant tint aligned to plot center (trait 5/5) */}
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background: [
+              `linear-gradient(90deg,transparent calc(${center.x}% - 0.5px),rgba(15,118,110,0.04) calc(${center.x}% - 0.5px))`,
+              `linear-gradient(0deg,transparent calc(${center.y}% - 0.5px),rgba(15,118,110,0.04) calc(${center.y}% - 0.5px))`,
+            ].join(","),
+          }}
+        />
 
-        {[25, 50, 75].map((p) => (
-          <div
-            key={`v-${p}`}
-            className="absolute inset-y-0 border-l border-dashed border-slate-300/80"
-            style={{ left: `${p}%` }}
-          />
-        ))}
-        {[25, 50, 75].map((p) => (
-          <div
-            key={`h-${p}`}
-            className="absolute inset-x-0 border-t border-dashed border-slate-300/80"
-            style={{ top: `${p}%` }}
-          />
-        ))}
+        {gridLines.map((level) => {
+          const x = toPct({ exploration: level, energy: 5 }).x;
+          const y = toPct({ exploration: 5, energy: level }).y;
+          return (
+            <div key={`grid-${level}`}>
+              <div
+                className="absolute border-l border-dashed border-slate-300/80"
+                style={{ left: `${x}%`, top: `${PLOT_PAD}%`, bottom: `${PLOT_PAD}%` }}
+              />
+              <div
+                className="absolute border-t border-dashed border-slate-300/80"
+                style={{ top: `${y}%`, left: `${PLOT_PAD}%`, right: `${PLOT_PAD}%` }}
+              />
+            </div>
+          );
+        })}
 
-        {/* axis crosshair */}
-        <div className="absolute left-1/2 top-0 h-full w-px bg-slate-300/70" />
-        <div className="absolute left-0 top-1/2 h-px w-full bg-slate-300/70" />
+        {/* axis crosshair at neutral (5, 5) */}
+        <div
+          className="absolute w-px bg-slate-300/70"
+          style={{
+            left: `${center.x}%`,
+            top: `${PLOT_PAD}%`,
+            bottom: `${PLOT_PAD}%`,
+          }}
+        />
+        <div
+          className="absolute h-px bg-slate-300/70"
+          style={{
+            top: `${center.y}%`,
+            left: `${PLOT_PAD}%`,
+            right: `${PLOT_PAD}%`,
+          }}
+        />
 
         {/* trail */}
         <svg
@@ -101,11 +161,10 @@ export function TraitMap({ profile }: { profile: TraitProfile }) {
         </svg>
 
         {/* preset markers */}
-        {PRESET_MARKERS.map(({ name, short }) => {
-          const p = toPct(PRESETS[name]);
+        {presetLayout.map(({ name, short, preset, x, y }) => {
           const isActive =
-            profile.exploration === PRESETS[name].exploration &&
-            profile.energy === PRESETS[name].energy;
+            profile.exploration === preset.exploration &&
+            profile.energy === preset.energy;
           return (
             <div
               key={name}
@@ -114,8 +173,8 @@ export function TraitMap({ profile }: { profile: TraitProfile }) {
                   ? "border-teal-700 bg-teal-700 text-white shadow-sm"
                   : "border-slate-400/80 bg-white/90 text-slate-600"
               }`}
-              style={{ left: `${p.x}%`, top: `${p.y}%` }}
-              title={`${name} (X${PRESETS[name].exploration}, Y${PRESETS[name].energy})`}
+              style={{ left: `${x}%`, top: `${y}%` }}
+              title={`${name} (X${preset.exploration}, Y${preset.energy})`}
             >
               {short}
             </div>
@@ -136,14 +195,18 @@ export function TraitMap({ profile }: { profile: TraitProfile }) {
         <span className="absolute left-2 top-1/2 origin-left -translate-y-1/2 -rotate-90 text-[10px] font-medium uppercase tracking-wide text-slate-600">
           Energy →
         </span>
+        {/* Corners: X→ right (Exploration), Y→ up (Energy) */}
         <span className="absolute left-2 top-2 text-[9px] uppercase tracking-wide text-slate-400">
-          Low / Low
+          Low X / High Y
         </span>
         <span className="absolute right-2 top-2 text-[9px] uppercase tracking-wide text-slate-400">
-          High X
+          High X / High Y
         </span>
         <span className="absolute bottom-7 left-2 text-[9px] uppercase tracking-wide text-slate-400">
-          High Y
+          Low X / Low Y
+        </span>
+        <span className="absolute bottom-7 right-2 text-[9px] uppercase tracking-wide text-slate-400">
+          High X / Low Y
         </span>
       </div>
       <div className="mt-2 flex flex-wrap items-center justify-center gap-2 text-[11px] text-[var(--muted)]">
