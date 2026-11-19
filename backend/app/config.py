@@ -18,6 +18,8 @@ class Settings(BaseSettings):
     google_api_key: str = ""
     openai_model: str = "gpt-4o-mini"
     google_model: str = "gemini-2.0-flash"
+    # Independent Phase-2 judge — must be an allowlisted small OpenAI model.
+    judge_model: str = "gpt-4o-mini"
     # ISO date (YYYY-MM-DD) when the OpenAI key expires — for admin/local UI only.
     # Set on Vercel when rotating a short-lived key; never send the key to the browser.
     openai_key_expires_at: str = ""

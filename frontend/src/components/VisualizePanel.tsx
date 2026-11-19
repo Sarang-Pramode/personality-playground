@@ -1,26 +1,36 @@
 import type { TraitProfile } from "../types";
+import {
+  BehaviorSummary,
+  type TraitCard,
+} from "./BehaviorSummary";
 import { RequestedRadar } from "./RadarChart";
 import { TraitMap } from "./TraitMap";
 import { Badge, Panel } from "./ui";
 
 type Props = {
   profile: TraitProfile;
-  behaviorSummary: string;
+  traitCards?: TraitCard[] | null;
+  measured?: TraitProfile | null;
 };
 
-export function VisualizePanel({ profile, behaviorSummary }: Props) {
+export function VisualizePanel({ profile, traitCards, measured }: Props) {
   return (
     <Panel
       title="Visualize"
       subtitle="Requested-profile radar · fixed 2D map · behavior summary"
-      actions={<Badge>TARGET</Badge>}
+      actions={
+        <div className="flex gap-1">
+          <Badge>TARGET</Badge>
+          {measured ? <Badge tone="warn">MEASURED</Badge> : null}
+        </div>
+      }
     >
       <div className="space-y-5">
         <div>
           <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
             Requested profile
           </h3>
-          <RequestedRadar profile={profile} />
+          <RequestedRadar profile={profile} measured={measured} />
         </div>
 
         <div>
@@ -30,14 +40,7 @@ export function VisualizePanel({ profile, behaviorSummary }: Props) {
           <TraitMap profile={profile} />
         </div>
 
-        <div className="rounded-md border border-[var(--border)] bg-slate-50 p-3">
-          <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Behavior summary
-          </h3>
-          <p className="text-sm leading-relaxed text-slate-700">
-            {behaviorSummary || "Adjust traits to preview style guidance."}
-          </p>
-        </div>
+        <BehaviorSummary cards={traitCards} profile={profile} />
       </div>
     </Panel>
   );

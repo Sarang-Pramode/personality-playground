@@ -50,13 +50,12 @@ export function Header({
           <span className="rounded-md bg-slate-900 px-2.5 py-1 text-xs font-medium text-white">
             Live Studio
           </span>
-          <span
-            className="cursor-not-allowed rounded-md px-2.5 py-1 text-xs text-slate-400"
-            title="Coming in Phase 2"
-            aria-disabled="true"
+          <a
+            href="#demo-lab"
+            className="rounded-md px-2.5 py-1 text-xs text-slate-600 hover:bg-slate-100 hover:text-slate-900"
           >
-            Batch Evaluation — Phase 2
-          </span>
+            Demo lab / scores
+          </a>
         </nav>
 
         <div className="flex items-center gap-2">

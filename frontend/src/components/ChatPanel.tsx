@@ -4,6 +4,7 @@ import type {
   FixtureCustomer,
   Scenario,
 } from "../types";
+import { MarkdownContent } from "./MarkdownContent";
 import { Badge, Button, FieldLabel, Panel, Select } from "./ui";
 
 type Props = {
@@ -124,9 +125,13 @@ export function ChatPanel({
                   {m.role}
                   {m.metadata?.mode ? ` · ${m.metadata.mode}` : ""}
                 </div>
-                <div className="whitespace-pre-wrap leading-relaxed">
-                  {m.content}
-                </div>
+                {m.role === "assistant" ? (
+                  <MarkdownContent content={m.content} />
+                ) : (
+                  <div className="whitespace-pre-wrap leading-relaxed">
+                    {m.content}
+                  </div>
+                )}
               </div>
             ))
           )}

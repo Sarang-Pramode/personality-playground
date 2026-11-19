@@ -103,6 +103,15 @@ export type Scenario = {
   description: string;
   suggested_prompt: string;
   fixture_ids: string[];
+  category?: string;
+};
+
+export type TraitCard = {
+  key: TraitKey;
+  label: string;
+  level: number;
+  level_name: string;
+  description: string;
 };
 
 export type PreviewResponse = {
@@ -110,10 +119,51 @@ export type PreviewResponse = {
   preset: string | null;
   policy_version: string;
   behavior_summary: string;
+  trait_cards?: TraitCard[];
   style_guidance: string;
   system_prompt: string;
   map_position: { x: number; y: number };
   radar: { trait: string; key: TraitKey; value: number }[];
+};
+
+export type TraitJudgment = {
+  trait: TraitKey;
+  score: number | null;
+  cited_behaviors: string[];
+  rationale: string;
+  unable_to_judge: boolean;
+  abstain_reason?: string | null;
+};
+
+export type BankingCheck = {
+  check_id: string;
+  passed: boolean;
+  detail: string;
+  evidence?: string[];
+};
+
+export type EvalScoreEntry = {
+  score_key?: string;
+  scenario_id: string;
+  judged: boolean;
+  skipped_reason?: string | null;
+  judge_model?: string | null;
+  judge_prompt_version?: string;
+  target_profile?: TraitProfile;
+  traits: TraitJudgment[];
+  banking_checks: BankingCheck[];
+  measured_profile?: TraitProfile | null;
+  overall_notes?: string | null;
+};
+
+export type EvalAggregate = {
+  scored_runs: number;
+  judged_runs: number;
+  trait_means: Partial<Record<TraitKey, number | null>>;
+  measured_profile_approx?: TraitProfile | null;
+  banking_pass_rate: number | null;
+  banking_passed: number;
+  banking_total: number;
 };
 
 export type ChatMetadata = {
@@ -205,11 +255,18 @@ export type DemoCacheResponse = {
     scenario_id: string;
     title: string;
     suggested_prompt: string;
+    category?: string;
     hit: boolean;
     entry: DemoCacheEntry | null;
+    score?: EvalScoreEntry | null;
   }[];
   cached_count: number;
+  scored_count?: number;
   total: number;
+  aggregate?: EvalAggregate;
+  model_aggregate?: EvalAggregate;
+  judge_available?: boolean;
+  judge_prompt_version?: string;
 };
 
 export type DemoRunResponse = {
@@ -223,11 +280,39 @@ export type DemoRunResponse = {
     scenario_id: string;
     title: string;
     suggested_prompt: string;
+    category?: string;
     cache_hit: boolean;
     entry: DemoCacheEntry | null;
     error: string | null;
+    score?: EvalScoreEntry | null;
   }[];
   cache_hits: number;
   cache_misses: number;
+  scored_count?: number;
+  total: number;
+  aggregate?: EvalAggregate;
+  model_aggregate?: EvalAggregate;
+  judge_available?: boolean;
+  judge_prompt_version?: string;
+};
+
+export type DemoScoresResponse = {
+  preset: string;
+  customer_id: string;
+  provider: string;
+  model_id: string;
+  prompt_version: string;
+  judge_prompt_version: string;
+  judge_available: boolean;
+  cards: {
+    scenario_id: string;
+    title: string;
+    category?: string;
+    suggested_prompt: string;
+    score: EvalScoreEntry | null;
+  }[];
+  aggregate: EvalAggregate;
+  model_aggregate: EvalAggregate;
+  scored_count: number;
   total: number;
 };

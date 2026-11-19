@@ -1,16 +1,32 @@
-# Evaluation Design (Future — Phase 2+)
+# Evaluation Design (Phase 2 — implemented)
 
-This document is a placeholder for the Phase 2 evaluation system. **Do not treat any of this as implemented in Phase 1.**
+Independent judges and banking checks ship with the Demo lab. Measured radar overlays appear **only** when a complete real judge score set exists.
 
-## Intended capabilities
+## Capabilities
 
-- Batch datasets of synthetic banking dialogues and edge cases
-- Independent LLM judges for personality adherence vs banking policy compliance
-- Banking quality checks (hallucination, omission of critical caveats, tool grounding)
-- Measured score overlays on the radar (never fabricate these in Phase 1)
-- A/B comparison runs across presets and models
-- Upload / export of evaluation manifests
+- Reuses the same chat adapter / Demo cache path as live studio runs
+- Independent LLM judges (allowlisted small OpenAI via `JUDGE_MODEL`) score traits with cited behaviors; abstain when evidence is weak
+- Deterministic banking checks (balance match, tools, eligibility, hallucination / policy) separate from personality scores
+- Scenario seed covering multiple of 12 eval categories (frustration, exploration, structure, …)
+- Demo lab report cards per preset × model × scenario; aggregates by selection and by model
+- Scores persisted in Postgres (`eval_scores`); judge prompts versioned (`independent-judge-v1`)
 
-## Separation from Phase 1
+## API
 
-Phase 1 ships live chat + Requested (TARGET) profile visualization only. The nav item **Batch Evaluation — Phase 2** is intentionally disabled. No judge prompts, scoring UIs, or Measured series should appear until Phase 2 work begins.
+| Method | Path | Notes |
+|--------|------|-------|
+| GET | `/api/evaluation/status` | Judge availability + versions |
+| GET | `/api/demo/cache` | Cached replies + attached scores |
+| POST | `/api/demo/run` | Run scenarios; `auto_judge=true` by default |
+| GET | `/api/demo/scores` | Report cards for selection |
+| POST | `/api/demo/judge` | Score existing cache without re-running chat |
+
+## Env
+
+| Variable | Purpose |
+|----------|---------|
+| `OPENAI_API_KEY` | Required for personality judges (banking checks work without it) |
+| `JUDGE_MODEL` | Allowlisted small OpenAI id (`gpt-4o-mini` default, or `gpt-4.1-mini`) |
+| `OPENAI_MODEL` | Fallback when `JUDGE_MODEL` unset / invalid |
+
+Never fabricate Measured scores when the judge is unavailable — banking checks still run and show on report cards.

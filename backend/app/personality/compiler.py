@@ -111,6 +111,23 @@ def behavior_summary(profile: TraitProfile) -> str:
     return " · ".join(parts)
 
 
+def trait_cards(profile: TraitProfile) -> list[dict]:
+    """Scannable per-trait cards: level badge + short human description."""
+    cards = []
+    for key, label in TRAIT_LABELS.items():
+        level = getattr(profile, key)
+        cards.append(
+            {
+                "key": key,
+                "label": label,
+                "level": level,
+                "level_name": LEVEL_NAMES[level],
+                "description": _GUIDANCE[key][level],
+            }
+        )
+    return cards
+
+
 def compile_personality(
     profile: TraitProfile | dict | None = None,
     *,
@@ -153,6 +170,7 @@ def compile_personality(
         "preset": preset,
         "policy_version": POLICY_VERSION,
         "behavior_summary": behavior_summary(profile),
+        "trait_cards": trait_cards(profile),
         "style_guidance": style_block,
         "system_prompt": system_prompt,
         "map_position": {

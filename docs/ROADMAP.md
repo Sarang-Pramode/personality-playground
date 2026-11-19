@@ -1,13 +1,13 @@
 # Roadmap
 
-## Phase 1 — Interactive MVP (this repo)
+## Phase 1 — Interactive MVP (shipped)
 
 Live personality studio with five trait controls, Requested-profile radar, fixed 2D map, FastAPI rewards chatbot, OpenAI + Google adapters, synthetic fixtures, and developer inspector.
 
-## Phase 2 — Evaluation (not implemented)
+## Phase 2 — Evaluation (shipped)
 
-Batch datasets, independent judges, banking quality checks, and Measured overlays. See `EVALUATION_DESIGN_FUTURE.md`. UI entry points remain disabled stubs only.
+Batch-style Demo lab scenarios, independent judges, banking quality checks, report cards, and Measured overlays **only when real judge scores exist**. See `EVALUATION_DESIGN_FUTURE.md`.
 
 ## Phase 3 — Reserved
 
-Production hardening, auth, durable sessions, and broader domain adapters — out of scope for MVP.
+Production hardening, durable chat sessions, and broader domain adapters — out of scope for current work.

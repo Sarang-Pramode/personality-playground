@@ -39,6 +39,7 @@ import {
   type PresetName,
   type SavedProfile,
   type Scenario,
+  type TraitCard,
   type TraitKey,
   type TraitProfile,
 } from "./types";
@@ -69,7 +70,10 @@ function Studio({
   const [activePreset, setActivePreset] = useState<PresetName | "custom">(
     "balanced",
   );
-  const [behaviorSummary, setBehaviorSummary] = useState("");
+  const [traitCards, setTraitCards] = useState<TraitCard[] | null>(null);
+  const [measuredProfile, setMeasuredProfile] = useState<TraitProfile | null>(
+    null,
+  );
   const [previewPrompt, setPreviewPrompt] = useState("");
   const [saved, setSaved] = useState<SavedProfile[]>([]);
   const [saveName, setSaveName] = useState("");
@@ -149,13 +153,11 @@ function Studio({
           preset: activePreset === "custom" ? undefined : activePreset,
         });
         if (cancelled) return;
-        setBehaviorSummary(preview.behavior_summary);
+        setTraitCards(preview.trait_cards ?? null);
         setPreviewPrompt(preview.system_prompt);
       } catch {
         if (!cancelled) {
-          setBehaviorSummary(
-            "Could not reach /api/personality/preview — check auth/backend.",
-          );
+          setTraitCards(null);
         }
       }
     }, 200);
@@ -319,7 +321,8 @@ function Studio({
             />
             <VisualizePanel
               profile={profile}
-              behaviorSummary={behaviorSummary}
+              traitCards={traitCards}
+              measured={measuredProfile}
             />
             <ChatPanel
               customers={customers}
@@ -357,6 +360,7 @@ function Studio({
             scenarios={scenarios}
             defaultProvider={provider}
             defaultModelId={modelId}
+            onMeasuredChange={setMeasuredProfile}
           />
         </>
       )}
