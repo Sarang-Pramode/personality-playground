@@ -35,7 +35,7 @@ cp .env.example backend/.env
 | `OPENAI_API_KEY` | backend / Vercel | OpenAI adapter |
 | `GOOGLE_API_KEY` | backend / Vercel | Google Gemini adapter |
 | `OPENAI_MODEL` | backend / Vercel | Default OpenAI model (`gpt-4o-mini`) |
-| `JUDGE_MODEL` | backend / Vercel | Independent judge model — allowlisted small OpenAI only (`gpt-4o-mini` / `gpt-4.1-mini`) |
+| `JUDGE_MODEL` | backend / Vercel | Independent judge model — defaults to `gpt-4o-mini` (must be allowlisted) |
 | `GOOGLE_MODEL` | backend / Vercel | Default Google model (`gemini-2.0-flash`) |
 | `OPENAI_KEY_EXPIRES_AT` | backend / Vercel | ISO date (`YYYY-MM-DD`) for key-expiry banner (set when rotating a 7-day key) |
 | `APP_BASE_URL` | backend / Vercel | Public origin (OAuth redirects) |
@@ -82,7 +82,7 @@ pytest -q
 
 ### OpenAI model allowlist
 
-Experimentation only lists small models: `gpt-4o-mini`, `gpt-4.1-mini` (large models like `gpt-4o` / `o1` are rejected). Google + scripted demo are unchanged. Judges use the same allowlist via `JUDGE_MODEL`.
+OpenAI allowlist for experiments: `gpt-4o-mini`, `gpt-4.1-mini`, `gpt-5.4-nano`, `gpt-5.4-mini`, `gpt-4o`. Expensive flagships (`o1` / `o3`, full `gpt-4.1`, etc.) and shut-down IDs (`gpt-4.1-nano`, `o4-mini`) stay rejected. Google + scripted demo are unchanged. Judges default to `gpt-4o-mini` via `JUDGE_MODEL`.
 
 ### Demo cache + report cards
 

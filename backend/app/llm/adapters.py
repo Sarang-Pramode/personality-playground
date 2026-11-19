@@ -23,7 +23,7 @@ class ModelNotAllowedError(ValueError):
 
 
 def list_models(settings: Settings | None = None) -> list[dict[str, Any]]:
-    """Return switcher options — OpenAI entries are allowlisted small models only."""
+    """Return switcher options — OpenAI entries are allowlisted experiment models."""
     settings = settings or get_settings()
     models: list[dict[str, Any]] = []
     for mid in OPENAI_ALLOWED_MODELS:

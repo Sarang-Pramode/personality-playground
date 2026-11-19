@@ -334,7 +334,7 @@ export function DemoLab({
               </Select>
             </div>
             <div className="sm:col-span-2">
-              <FieldLabel hint="OpenAI list is allowlisted small models only">
+              <FieldLabel hint="OpenAI list is allowlisted experiment models">
                 Model
               </FieldLabel>
               <Select

@@ -262,7 +262,7 @@ def test_demo_api_rejects_disallowed_openai_model(client: TestClient):
             "preset": "balanced",
             "customer_id": "customer_A",
             "provider": "openai",
-            "model_id": "gpt-4o",
+            "model_id": "o1",
             "force": True,
             "scenario_ids": ["balance_check"],
         },

@@ -31,24 +31,34 @@ def _reset():
     reset_engine()
 
 
-def test_allowlist_contains_small_models_only():
+def test_allowlist_contains_experiment_models():
     assert "gpt-4o-mini" in OPENAI_ALLOWED_MODELS
     assert "gpt-4.1-mini" in OPENAI_ALLOWED_MODELS
-    assert "gpt-4o" not in OPENAI_ALLOWED_MODELS
+    assert "gpt-4o" in OPENAI_ALLOWED_MODELS
+    assert "gpt-5.4-nano" in OPENAI_ALLOWED_MODELS
+    assert "gpt-5.4-mini" in OPENAI_ALLOWED_MODELS
+    # Shut down / expensive flagships stay excluded
+    assert "gpt-4.1-nano" not in OPENAI_ALLOWED_MODELS
+    assert "o4-mini" not in OPENAI_ALLOWED_MODELS
+    assert "gpt-4.1" not in OPENAI_ALLOWED_MODELS
     assert "o1" not in OPENAI_ALLOWED_MODELS
     assert "o1-preview" not in OPENAI_ALLOWED_MODELS
+    assert "o3" not in OPENAI_ALLOWED_MODELS
 
 
 def test_is_openai_model_allowed():
     assert is_openai_model_allowed("gpt-4o-mini")
     assert is_openai_model_allowed("gpt-4.1-mini")
-    assert not is_openai_model_allowed("gpt-4o")
+    assert is_openai_model_allowed("gpt-4o")
+    assert is_openai_model_allowed("gpt-5.4-nano")
+    assert not is_openai_model_allowed("gpt-4.1")
     assert not is_openai_model_allowed("o1")
     assert not is_openai_model_allowed(None)
 
 
 def test_resolve_openai_model_falls_back():
-    assert resolve_openai_model("gpt-4o", "gpt-4o-mini") == "gpt-4o-mini"
+    assert resolve_openai_model("o1", "gpt-4o-mini") == "gpt-4o-mini"
+    assert resolve_openai_model("gpt-4o", "gpt-4o-mini") == "gpt-4o"
     assert resolve_openai_model("gpt-4.1-mini", "gpt-4o-mini") == "gpt-4.1-mini"
 
 
@@ -68,7 +78,7 @@ async def test_complete_chat_rejects_disallowed_openai_model():
     with pytest.raises(ModelNotAllowedError) as exc:
         await complete_chat(
             provider="openai",
-            model_id="gpt-4o",
+            model_id="o1",
             system_prompt="test",
             messages=[{"role": "user", "content": "hi"}],
             customer_id="customer_A",
